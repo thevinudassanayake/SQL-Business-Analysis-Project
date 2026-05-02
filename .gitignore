@@ -1,0 +1,5 @@
+# Ignore raw data files in dataset directory
+dataset/*.csv
+
+# Ignore sql files in sql directory
+sql/*.sql
