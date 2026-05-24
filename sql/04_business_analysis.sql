@@ -101,3 +101,30 @@ JOIN payments p ON o.order_id = p.order_id
 GROUP BY c.customer_id
 HAVING SUM(p.payment_value) > (SELECT AVG(payment_value) FROM payments)
 ORDER BY total_spent DESC;
+-- Best selling product categories
+SELECT pr.product_category_name, COUNT(*) AS products_sold
+FROM order_items oi
+JOIN products pr ON oi.product_id = pr.product_id
+GROUP BY pr.product_category_name
+ORDER BY products_sold DESC;
+
+
+-- Revenue by product category
+SELECT pr.product_category_name, ROUND(SUM(pay.payment_value),2) AS revenue
+FROM products pr
+JOIN order_items oi ON pr.product_id = oi.product_id
+JOIN orders o ON oi.order_id = o.order_id
+JOIN payments pay ON o.order_id = pay.order_id
+GROUP BY pr.product_category_name
+ORDER BY revenue DESC;
+
+
+-- Top product categories by revenue
+SELECT pr.product_category_name, ROUND(SUM(pay.payment_value),2) AS revenue
+FROM products pr
+JOIN order_items oi ON pr.product_id = oi.product_id
+JOIN orders o ON oi.order_id = o.order_id
+JOIN payments pay ON o.order_id = pay.order_id
+GROUP BY pr.product_category_name
+ORDER BY revenue DESC
+LIMIT 10;
