@@ -128,3 +128,15 @@ JOIN payments pay ON o.order_id = pay.order_id
 GROUP BY pr.product_category_name
 ORDER BY revenue DESC
 LIMIT 10;
+-- Customer segmentation using CASE
+SELECT c.customer_id, ROUND(SUM(p.payment_value),2) AS total_spent,
+CASE
+    WHEN SUM(p.payment_value) >= 5000 THEN 'VIP Customer'
+    WHEN SUM(p.payment_value) >= 2000 THEN 'Regular Customer'
+    ELSE 'Low Value Customer'
+END AS customer_type
+FROM customers c
+JOIN orders o ON c.customer_id = o.customer_id
+JOIN payments p ON o.order_id = p.order_id
+GROUP BY c.customer_id
+ORDER BY total_spent DESC;
