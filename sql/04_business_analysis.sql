@@ -15,6 +15,7 @@ Techniques Used:
 */
 
 USE business_analysis;
+
 -- Total orders placed by each customer
 SELECT c.customer_id, COUNT(o.order_id) AS total_orders
 FROM customers c
@@ -56,6 +57,81 @@ GROUP BY payment_type
 ORDER BY average_payment DESC;
 
 
+-- Best selling product categories
+SELECT pr.product_category_name, COUNT(*) AS products_sold
+FROM order_items oi
+JOIN products pr ON oi.product_id = pr.product_id
+GROUP BY pr.product_category_name
+ORDER BY products_sold DESC;
+
+
+-- Revenue by product category
+SELECT pr.product_category_name, ROUND(SUM(pay.payment_value),2) AS revenue
+FROM products pr
+JOIN order_items oi ON pr.product_id = oi.product_id
+JOIN orders o ON oi.order_id = o.order_id
+JOIN payments pay ON o.order_id = pay.order_id
+GROUP BY pr.product_category_name
+ORDER BY revenue DESC;
+
+
+-- Customer segmentation using CASE
+SELECT c.customer_id, ROUND(SUM(p.payment_value),2) AS total_spent,
+CASE
+    WHEN SUM(p.payment_value) >= 5000 THEN 'VIP Customer'
+    WHEN SUM(p.payment_value) >= 2000 THEN 'Regular Customer'
+    ELSE 'Low Value Customer'
+END AS customer_type
+FROM customers c
+JOIN orders o ON c.customer_id = o.customer_id
+JOIN payments p ON o.order_id = p.order_id
+GROUP BY c.customer_id
+ORDER BY total_spent DESC;
+
+
+-- Rank customers by spending
+SELECT c.customer_id, ROUND(SUM(p.payment_value),2) AS total_spent, RANK() OVER(ORDER BY SUM(p.payment_value) DESC) AS customer_rank
+FROM customers c
+JOIN orders o ON c.customer_id = o.customer_id
+JOIN payments p ON o.order_id = p.order_id
+GROUP BY c.customer_id;
+
+
+-- Dense rank customers
+SELECT c.customer_id, ROUND(SUM(p.payment_value),2) AS total_spent, DENSE_RANK() OVER(ORDER BY SUM(p.payment_value) DESC) AS customer_rank
+FROM customers c
+JOIN orders o ON c.customer_id = o.customer_id
+JOIN payments p ON o.order_id = p.order_id
+GROUP BY c.customer_id;
+
+
+-- Row number ranking example
+SELECT c.customer_id, ROUND(SUM(p.payment_value),2) AS total_spent, ROW_NUMBER() OVER(ORDER BY SUM(p.payment_value) DESC) AS row_num
+FROM customers c
+JOIN orders o ON c.customer_id = o.customer_id
+JOIN payments p ON o.order_id = p.order_id
+GROUP BY c.customer_id;
+
+-- Monthly revenue trend
+SELECT YEAR(o.order_purchase_timestamp) AS order_year, MONTH(o.order_purchase_timestamp) AS order_month, ROUND(SUM(p.payment_value),2) AS monthly_revenue
+FROM orders o
+JOIN payments p ON o.order_id = p.order_id
+GROUP BY YEAR(o.order_purchase_timestamp), MONTH(o.order_purchase_timestamp)
+ORDER BY order_year, order_month;
+
+
+-- Running total revenue using CTE and window function
+WITH monthly_sales AS (
+    SELECT DATE_FORMAT(o.order_purchase_timestamp,'%Y-%m') AS sales_month, SUM(p.payment_value) AS revenue
+    FROM orders o
+    JOIN payments p ON o.order_id = p.order_id
+    GROUP BY sales_month
+)
+
+SELECT sales_month, ROUND(revenue,2) AS monthly_revenue, ROUND(SUM(revenue) OVER(ORDER BY sales_month),2) AS running_total
+FROM monthly_sales;
+
+
 -- Top 10 highest value orders
 SELECT o.order_id, ROUND(SUM(p.payment_value),2) AS total_value
 FROM orders o
@@ -73,6 +149,45 @@ FROM payments;
 -- Total revenue generated
 SELECT ROUND(SUM(payment_value),2) AS total_revenue
 FROM payments;
+
+
+-- Top product categories by revenue
+SELECT pr.product_category_name, ROUND(SUM(pay.payment_value),2) AS revenue
+FROM products pr
+JOIN order_items oi ON pr.product_id = oi.product_id
+JOIN orders o ON oi.order_id = o.order_id
+JOIN payments pay ON o.order_id = pay.order_id
+GROUP BY pr.product_category_name
+ORDER BY revenue DESC
+LIMIT 10;
+
+
+-- Customer lifetime value using CTE
+WITH customer_sales AS (
+    SELECT c.customer_id, SUM(p.payment_value) AS total_spent
+    FROM customers c
+    JOIN orders o ON c.customer_id = o.customer_id
+    JOIN payments p ON o.order_id = p.order_id
+    GROUP BY c.customer_id
+)
+
+SELECT customer_id, ROUND(total_spent,2) AS customer_lifetime_value
+FROM customer_sales
+ORDER BY customer_lifetime_value DESC;
+
+
+-- Top 20 customers using CTE and ranking
+WITH customer_sales AS (
+    SELECT c.customer_id, SUM(p.payment_value) AS total_spent
+    FROM customers c
+    JOIN orders o ON c.customer_id = o.customer_id
+    JOIN payments p ON o.order_id = p.order_id
+    GROUP BY c.customer_id
+)
+
+SELECT customer_id, ROUND(total_spent,2) AS total_spent, RANK() OVER(ORDER BY total_spent DESC) AS customer_rank
+FROM customer_sales
+LIMIT 20;
 
 
 -- Revenue contribution by payment type
@@ -100,43 +215,4 @@ JOIN orders o ON c.customer_id = o.customer_id
 JOIN payments p ON o.order_id = p.order_id
 GROUP BY c.customer_id
 HAVING SUM(p.payment_value) > (SELECT AVG(payment_value) FROM payments)
-ORDER BY total_spent DESC;
--- Best selling product categories
-SELECT pr.product_category_name, COUNT(*) AS products_sold
-FROM order_items oi
-JOIN products pr ON oi.product_id = pr.product_id
-GROUP BY pr.product_category_name
-ORDER BY products_sold DESC;
-
-
--- Revenue by product category
-SELECT pr.product_category_name, ROUND(SUM(pay.payment_value),2) AS revenue
-FROM products pr
-JOIN order_items oi ON pr.product_id = oi.product_id
-JOIN orders o ON oi.order_id = o.order_id
-JOIN payments pay ON o.order_id = pay.order_id
-GROUP BY pr.product_category_name
-ORDER BY revenue DESC;
-
-
--- Top product categories by revenue
-SELECT pr.product_category_name, ROUND(SUM(pay.payment_value),2) AS revenue
-FROM products pr
-JOIN order_items oi ON pr.product_id = oi.product_id
-JOIN orders o ON oi.order_id = o.order_id
-JOIN payments pay ON o.order_id = pay.order_id
-GROUP BY pr.product_category_name
-ORDER BY revenue DESC
-LIMIT 10;
--- Customer segmentation using CASE
-SELECT c.customer_id, ROUND(SUM(p.payment_value),2) AS total_spent,
-CASE
-    WHEN SUM(p.payment_value) >= 5000 THEN 'VIP Customer'
-    WHEN SUM(p.payment_value) >= 2000 THEN 'Regular Customer'
-    ELSE 'Low Value Customer'
-END AS customer_type
-FROM customers c
-JOIN orders o ON c.customer_id = o.customer_id
-JOIN payments p ON o.order_id = p.order_id
-GROUP BY c.customer_id
 ORDER BY total_spent DESC;
